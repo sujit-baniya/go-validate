@@ -398,13 +398,21 @@ func (v *Validation) tryGet(key string) (val interface{}, exist, zero bool) {
 	if v.data == nil {
 		return
 	}
-	vals := strings.Split(key, ".*")
-	if len(vals) > 1 {
-		key = vals[0]
+	if strings.Contains(key, ".*.") {
+		vals := strings.Split(key, ".*.")
+		if len(vals) > 1 {
+			key = vals[0]
+		}
+		// if end withs: .*, return the parent value
+		key = strings.TrimSuffix(key, ".*.")
+	} else {
+		vals := strings.Split(key, ".*")
+		if len(vals) > 1 {
+			key = vals[0]
+		}
+		// if end withs: .*, return the parent value
+		key = strings.TrimSuffix(key, ".*")
 	}
-	// if end withs: .*, return the parent value
-	key = strings.TrimSuffix(key, ".*")
-
 	// find from filtered data.
 	if val, ok := v.filteredData[key]; ok {
 		return val, true, false

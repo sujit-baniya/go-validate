@@ -283,6 +283,7 @@ func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation)
 		}
 		return true
 	}
+
 	// 1.1 convert field value type, is func first argument.
 	if r.nameNotRequired && arg0Kind != reflect.Interface && arg0Kind != valKind {
 		val, ok = convValAsFuncArg0Type(arg0Kind, valKind, val)
