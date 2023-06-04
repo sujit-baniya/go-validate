@@ -255,6 +255,7 @@ func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation)
 	if strings.Contains(field, ".*.") {
 		arrField = strings.Split(field, ".*.")[1]
 	}
+	_ = isRequired
 	// feat: support check sub element in a slice list. eg: field=names.*
 	hasSliceSuffix := len(strings.Split(field, ".*")) > 1
 	if valKind == reflect.Slice && hasSliceSuffix {
@@ -272,9 +273,13 @@ func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation)
 			} else {
 				subVal = subRv.Interface()
 			}
-			_, exists := v.data.Get(arrField)
-			if isRequired && !exists {
-				return false
+			switch subVal := subVal.(type) {
+			case map[string]any:
+				if arrField != "" {
+					if _, exists := subVal[arrField]; !exists && isRequired {
+						return false
+					}
+				}
 			}
 			// 2. call built in validator
 			if !callValidator(v, fm, field, subVal, r.arguments) {
