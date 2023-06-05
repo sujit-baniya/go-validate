@@ -3,6 +3,8 @@ package validate
 import (
 	"reflect"
 	"strings"
+
+	"github.com/oarkflow/pkg/dipper"
 )
 
 // const requiredValidator = "required"
@@ -213,13 +215,99 @@ func (r *Rule) fileValidate(field, name string, v *Validation) uint8 {
 	return statusFail
 }
 
+func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool) {
+	fields := strings.Split(field, ".*.")
+	if val == nil {
+		return false
+	}
+
+	switch val := val.(type) {
+	case []map[string]any:
+		if len(fields) == 2 {
+			arrField := fields[1]
+			for _, v := range val {
+				d := dipper.Get(v, arrField)
+				switch d.(type) {
+				case error:
+					if isLast {
+						return false
+					}
+				}
+			}
+			return true
+		} else if len(fields) > 2 {
+			fields = fields[1:]
+			arrField := fields[0]
+			if strings.Contains(fields[0], ".") {
+				t := strings.Split(fields[0], ".")[1]
+				fields[0] = t
+			}
+			field = strings.Join(fields, ".*.")
+			for _, v := range val {
+				data := dipper.Get(v, arrField)
+				switch data.(type) {
+				case error:
+					if isLast {
+						return false
+					}
+				}
+				if len(fields) == 2 {
+					isLast = true
+				}
+				if !r.mapValidate(field, data, isLast) {
+					return false
+				}
+			}
+			return true
+		}
+	case map[string]any:
+		if len(fields) == 2 {
+			arrField := fields[1]
+			d := dipper.Get(val, arrField)
+			switch d.(type) {
+			case error:
+				if isLast {
+					return false
+				}
+			}
+			return true
+		} else if len(fields) > 2 {
+			fields = fields[1:]
+			arrField := fields[0]
+			if strings.Contains(fields[0], ".") {
+				t := strings.Split(fields[0], ".")[1]
+				fields[0] = t
+			}
+			field = strings.Join(fields, ".*.")
+			data := dipper.Get(val, arrField)
+			switch data.(type) {
+			case error:
+				if isLast {
+					return false
+				}
+			}
+			if len(fields) == 2 {
+				isLast = true
+			}
+			if !r.mapValidate(field, data, isLast) {
+				return false
+			}
+			return true
+		}
+	}
+	return true
+}
+
 // validate the field value
 func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation) (ok bool) {
+
 	// "-" OR "safe" mark field value always is safe.
 	if name == "-" || name == "safe" {
 		return true
 	}
-
+	if name == "required" && strings.Contains(field, ".*.") {
+		return r.mapValidate(field, val, false)
+	}
 	// call custom validator in the rule.
 	fm := r.checkFuncMeta
 	if fm == nil {
@@ -250,12 +338,6 @@ func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation)
 	// rftVal := reflect.Indirect(reflect.ValueOf(val))
 	rftVal := reflect.ValueOf(val)
 	valKind := rftVal.Kind()
-	isRequired := fm.name == "required"
-	arrField := ""
-	if strings.Contains(field, ".*.") {
-		arrField = strings.Split(field, ".*.")[1]
-	}
-
 	// feat: support check sub element in a slice list. eg: field=names.*
 	hasSliceSuffix := len(strings.Split(field, ".*")) > 1
 	if valKind == reflect.Slice && hasSliceSuffix {
@@ -272,14 +354,6 @@ func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation)
 				}
 			} else {
 				subVal = subRv.Interface()
-			}
-			switch subVal := subVal.(type) {
-			case map[string]any:
-				if arrField != "" {
-					if _, exists := subVal[arrField]; !exists && isRequired {
-						return false
-					}
-				}
 			}
 			// 2. call built in validator
 			if !callValidator(v, fm, field, subVal, r.arguments) {
