@@ -261,6 +261,45 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 			}
 			return true
 		}
+	case []any:
+		if len(fields) == 2 {
+			arrField := fields[1]
+			isLast = true
+			for _, v := range val {
+				d := dipper.Get(v, arrField)
+				switch d.(type) {
+				case error:
+					if isLast {
+						return false
+					}
+				}
+			}
+			return true
+		} else if len(fields) > 2 {
+			fields = fields[1:]
+			arrField := fields[0]
+			if strings.Contains(fields[0], ".") {
+				t := strings.Split(fields[0], ".")[1]
+				fields[0] = t
+			}
+			field = strings.Join(fields, ".*.")
+			for _, v := range val {
+				data := dipper.Get(v, arrField)
+				switch data.(type) {
+				case error:
+					if isLast {
+						return false
+					}
+				}
+				if len(fields) == 2 {
+					isLast = true
+				}
+				if !r.mapValidate(field, data, isLast) {
+					return false
+				}
+			}
+			return true
+		}
 	case map[string]any:
 		if len(fields) == 2 {
 			isLast = true
