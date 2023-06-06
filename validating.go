@@ -225,6 +225,7 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 	case []map[string]any:
 		if len(fields) == 2 {
 			arrField := fields[1]
+			isLast = true
 			for _, v := range val {
 				d := dipper.Get(v, arrField)
 				switch d.(type) {
@@ -262,6 +263,7 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 		}
 	case map[string]any:
 		if len(fields) == 2 {
+			isLast = true
 			arrField := fields[1]
 			d := dipper.Get(val, arrField)
 			switch d.(type) {

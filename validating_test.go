@@ -55,6 +55,40 @@ func TestIssue1(t *testing.T) {
 	assert.True(t, v.Validate())
 }
 
+func TestIssue5(t *testing.T) {
+	m := map[string]interface{}{
+		"names": []string{"John", "Jane", "abc"},
+		"cpt": []map[string]any{
+			{
+				"code":              "001",
+				"encounter_uid":     "1",
+				"work_item_uid":     "1",
+				"billing_provider":  "Test provider",
+				"resident_provider": "Test Resident Provider",
+			},
+			{
+				"code":              "OBS01",
+				"encounter_uid":     "1",
+				"work_item_uid":     "1",
+				"billing_provider":  "Test provider",
+				"resident_provider": "Test Resident Provider",
+			},
+			{
+				"code":              "SU002",
+				"encounter_uid":     "1",
+				"billing_provider":  "Test provider",
+				"resident_provider": "Test Resident Provider",
+			},
+		},
+	}
+
+	v := Map(m)
+	v.StopOnError = false
+	v.StringRule("cpt.*.encounter_uid", "required")
+	v.StringRule("cpt.*.work_item_uid", "required")
+	assert.False(t, v.Validate())
+}
+
 func TestIssue3(t *testing.T) {
 	m := map[string]interface{}{
 		"names": []string{"John", "Jane", "abc"},
