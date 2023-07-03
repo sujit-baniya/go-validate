@@ -1,6 +1,8 @@
 package validate
 
 import (
+	"fmt"
+	"github.com/oarkflow/pkg/str"
 	"reflect"
 	"strings"
 
@@ -215,7 +217,33 @@ func (r *Rule) fileValidate(field, name string, v *Validation) uint8 {
 	return statusFail
 }
 
-func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool) {
+func validateExistingRules(v *Validation, field, currentField string) bool {
+	baseField := strings.ReplaceAll(field, "."+currentField, "")
+	parts := strings.Split(currentField, ".")
+	fmt.Println(currentField)
+	for _, rule := range v.rules {
+		if rule.realName == "required" {
+			fieldToCheck := baseField
+			fieldFound := false
+			for _, f := range parts {
+				fieldToCheck += "." + f
+				if str.Contains(rule.fields, fieldToCheck) {
+					fieldFound = true
+					break
+				}
+			}
+			if !fieldFound {
+				fmt.Println(rule.realName, rule.fields, fieldToCheck)
+				return false
+			} else {
+				continue
+			}
+		}
+	}
+	return false
+}
+
+func (r *Rule) mapValidate(field string, val interface{}, v *Validation, isLast bool) (ok bool) {
 	fields := strings.Split(field, ".*.")
 	if val == nil {
 		return false
@@ -226,12 +254,15 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 		if len(fields) == 2 {
 			arrField := fields[1]
 			isLast = true
-			for _, v := range val {
-				d := dipper.Get(v, arrField)
+			for _, vt := range val {
+				d := dipper.Get(vt, arrField)
 				switch d.(type) {
 				case error:
-					if isLast {
+					hasDot := strings.Contains(arrField, ".")
+					if isLast && !hasDot {
 						return false
+					} else if hasDot {
+						return validateExistingRules(v, field, arrField)
 					}
 				}
 			}
@@ -244,18 +275,21 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 				fields[0] = t
 			}
 			field = strings.Join(fields, ".*.")
-			for _, v := range val {
-				data := dipper.Get(v, arrField)
+			for _, vt := range val {
+				data := dipper.Get(vt, arrField)
 				switch data.(type) {
 				case error:
-					if isLast {
+					hasDot := strings.Contains(arrField, ".")
+					if isLast && !hasDot {
 						return false
+					} else if hasDot {
+						return validateExistingRules(v, field, arrField)
 					}
 				}
 				if len(fields) == 2 {
 					isLast = true
 				}
-				if !r.mapValidate(field, data, isLast) {
+				if !r.mapValidate(field, data, v, isLast) {
 					return false
 				}
 			}
@@ -265,12 +299,15 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 		if len(fields) == 2 {
 			arrField := fields[1]
 			isLast = true
-			for _, v := range val {
-				d := dipper.Get(v, arrField)
+			for _, vt := range val {
+				d := dipper.Get(vt, arrField)
 				switch d.(type) {
 				case error:
-					if isLast {
+					hasDot := strings.Contains(arrField, ".")
+					if isLast && !hasDot {
 						return false
+					} else if hasDot {
+						return validateExistingRules(v, field, arrField)
 					}
 				}
 			}
@@ -283,18 +320,21 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 				fields[0] = t
 			}
 			field = strings.Join(fields, ".*.")
-			for _, v := range val {
-				data := dipper.Get(v, arrField)
+			for _, vt := range val {
+				data := dipper.Get(vt, arrField)
 				switch data.(type) {
 				case error:
-					if isLast {
+					hasDot := strings.Contains(arrField, ".")
+					if isLast && !hasDot {
 						return false
+					} else if hasDot {
+						return validateExistingRules(v, field, arrField)
 					}
 				}
 				if len(fields) == 2 {
 					isLast = true
 				}
-				if !r.mapValidate(field, data, isLast) {
+				if !r.mapValidate(field, data, v, isLast) {
 					return false
 				}
 			}
@@ -307,8 +347,11 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 			d := dipper.Get(val, arrField)
 			switch d.(type) {
 			case error:
-				if isLast {
+				hasDot := strings.Contains(arrField, ".")
+				if isLast && !hasDot {
 					return false
+				} else if hasDot {
+					return validateExistingRules(v, field, arrField)
 				}
 			}
 			return true
@@ -323,14 +366,17 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 			data := dipper.Get(val, arrField)
 			switch data.(type) {
 			case error:
-				if isLast {
+				hasDot := strings.Contains(arrField, ".")
+				if isLast && !hasDot {
 					return false
+				} else if hasDot {
+					return validateExistingRules(v, field, arrField)
 				}
 			}
 			if len(fields) == 2 {
 				isLast = true
 			}
-			if !r.mapValidate(field, data, isLast) {
+			if !r.mapValidate(field, data, v, isLast) {
 				return false
 			}
 			return true
@@ -347,7 +393,7 @@ func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation)
 		return true
 	}
 	if name == "required" && strings.Contains(field, ".*.") {
-		return r.mapValidate(field, val, false)
+		return r.mapValidate(field, val, v, false)
 	}
 	// call custom validator in the rule.
 	fm := r.checkFuncMeta
