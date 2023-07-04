@@ -339,6 +339,60 @@ func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool)
 	return true
 }
 
+func (r *Rule) validateRequiredWith(field string, val any, args []any, isLast bool) bool {
+	fields := strings.Split(field, ".*.")
+	if val == nil {
+		return false
+	}
+	switch val := val.(type) {
+	case []map[string]any:
+		if len(fields) == 2 {
+			isLast = true
+			for _, vt := range val {
+				for _, arg := range args {
+					switch arg := arg.(type) {
+					case string:
+						key := strings.ReplaceAll(arg, fields[0]+".*.", "")
+						d := dipper.Get(vt, key)
+						switch d.(type) {
+						case error:
+							if isLast {
+								return false
+							}
+						}
+					}
+				}
+			}
+			return true
+		} else if len(fields) > 2 {
+			fields = fields[1:]
+			arrField := fields[0]
+			if strings.Contains(fields[0], ".") {
+				t := strings.Split(fields[0], ".")[1]
+				fields[0] = t
+			}
+			field = strings.Join(fields, ".*.")
+			for _, v := range val {
+				data := dipper.Get(v, arrField)
+				switch data.(type) {
+				case error:
+					if isLast {
+						return false
+					}
+				}
+				if len(fields) == 2 {
+					isLast = true
+				}
+				if !r.validateRequiredWith(field, data, r.arguments, false) {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return true
+}
+
 // validate the field value
 func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation) (ok bool) {
 
@@ -348,6 +402,9 @@ func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation)
 	}
 	if name == "required" && strings.Contains(field, ".*.") {
 		return r.mapValidate(field, val, false)
+	}
+	if name == "requiredWith" && strings.Contains(field, ".*.") {
+		return r.validateRequiredWith(field, val, r.arguments, false)
 	}
 	// call custom validator in the rule.
 	fm := r.checkFuncMeta
