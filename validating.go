@@ -1,10 +1,12 @@
 package validate
 
 import (
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"strings"
 
-	"github.com/oarkflow/pkg/dipper"
+	"github.com/gookit/validate/gjson"
 )
 
 // const requiredValidator = "required"
@@ -215,270 +217,82 @@ func (r *Rule) fileValidate(field, name string, v *Validation) uint8 {
 	return statusFail
 }
 
-func (r *Rule) mapValidate(field string, val interface{}, isLast bool) (ok bool) {
-	fields := strings.Split(field, ".*.")
-	if val == nil {
+func (r *Rule) mapValidate(field string, val interface{}) (ok bool) {
+	data, err := json.Marshal(val)
+	if err != nil {
 		return false
 	}
+	fieldParts := strings.Split(field, ".#.")
+	lastPart := fieldParts[len(fieldParts)-1]
+	fieldParts = fieldParts[:len(fieldParts)-1]
+	if strings.Contains(lastPart, ".") {
+		parts := strings.Split(lastPart, ".")
+		lp := parts[len(parts)-1]
+		parts = parts[:len(parts)-1]
+		appendedField := strings.Join(fieldParts, ".#.") + ".#." + strings.Join(parts, ".") + fmt.Sprintf(".[%s,!null].0", lp)
+		d := gjson.GetBytes(data, appendedField)
+		if d.IsArray() {
+			for _, rs := range d.Array() {
+				switch rs := rs.Value().(type) {
+				case []any:
+					for _, t := range rs {
+						switch t.(type) {
+						case nil:
+							return false
+						}
 
-	switch val := val.(type) {
-	case []map[string]any:
-		if len(fields) == 2 {
-			arrField := fields[1]
-			isLast = true
-			for _, v := range val {
-				d := dipper.Get(v, arrField)
-				switch d.(type) {
-				case error:
-					if isLast {
-						return false
 					}
-				}
-			}
-			return true
-		} else if len(fields) > 2 {
-			fields = fields[1:]
-			arrField := fields[0]
-			if strings.Contains(fields[0], ".") {
-				t := strings.Split(fields[0], ".")[1]
-				fields[0] = t
-			}
-			field = strings.Join(fields, ".*.")
-			for _, v := range val {
-				data := dipper.Get(v, arrField)
-				switch data.(type) {
-				case error:
-					if isLast {
-						return false
-					}
-				}
-				if len(fields) == 2 {
-					isLast = true
-				}
-				if !r.mapValidate(field, data, isLast) {
+				case nil:
 					return false
 				}
 			}
-			return true
 		}
-	case []any:
-		if len(fields) == 2 {
-			arrField := fields[1]
-			isLast = true
-			for _, v := range val {
-				d := dipper.Get(v, arrField)
-				switch d.(type) {
-				case error:
-					if isLast {
-						return false
+	} else {
+		appendedField := strings.Join(fieldParts, ".#.") + fmt.Sprintf(".#.[%s,!null].0", lastPart)
+		d := gjson.GetBytes(data, appendedField)
+		if d.IsArray() {
+			for _, rs := range d.Array() {
+				switch rs := rs.Value().(type) {
+				case []any:
+					for _, t := range rs {
+						switch t.(type) {
+						case nil:
+							return false
+						}
+
 					}
-				}
-			}
-			return true
-		} else if len(fields) > 2 {
-			fields = fields[1:]
-			arrField := fields[0]
-			if strings.Contains(fields[0], ".") {
-				t := strings.Split(fields[0], ".")[1]
-				fields[0] = t
-			}
-			field = strings.Join(fields, ".*.")
-			for _, v := range val {
-				data := dipper.Get(v, arrField)
-				switch data.(type) {
-				case error:
-					if isLast {
-						return false
-					}
-				}
-				if len(fields) == 2 {
-					isLast = true
-				}
-				if !r.mapValidate(field, data, isLast) {
+				case nil:
 					return false
 				}
 			}
-			return true
-		}
-	case map[string]any:
-		if len(fields) == 2 {
-			isLast = true
-			arrField := fields[1]
-			d := dipper.Get(val, arrField)
-			switch d.(type) {
-			case error:
-				if isLast {
-					return false
-				}
-			}
-			return true
-		} else if len(fields) > 2 {
-			fields = fields[1:]
-			arrField := fields[0]
-			if strings.Contains(fields[0], ".") {
-				t := strings.Split(fields[0], ".")[1]
-				fields[0] = t
-			}
-			field = strings.Join(fields, ".*.")
-			data := dipper.Get(val, arrField)
-			switch data.(type) {
-			case error:
-				if isLast {
-					return false
-				}
-			}
-			if len(fields) == 2 {
-				isLast = true
-			}
-			if !r.mapValidate(field, data, isLast) {
-				return false
-			}
-			return true
+
 		}
 	}
+
 	return true
 }
 
-func (r *Rule) validateRequiredWith(field string, val any, args []any, isLast bool) bool {
-	fields := strings.Split(field, ".*.")
-	if val == nil {
-		return false
-	}
-	switch val := val.(type) {
-	case []map[string]any:
-		if len(fields) == 2 {
-			isLast = true
-			arrField := fields[1]
-			for _, vt := range val {
-				notFound := false
-				dt := dipper.Get(vt, arrField)
-				switch dt.(type) {
-				case error:
-					if isLast {
-						notFound = true
-					}
-				}
-				for _, arg := range args {
-					switch arg := arg.(type) {
-					case string:
-						key := strings.ReplaceAll(arg, fields[0]+".*.", "")
-						d := dipper.Get(vt, key)
-						switch d.(type) {
-						case error:
-							if isLast && notFound {
-								return true
-							} else if isLast {
-								return false
-							}
-						default:
-							if notFound {
-								return false
-							}
-						}
-					}
-				}
-			}
-			return true
-		} else if len(fields) > 2 {
-			fields = fields[1:]
-			arrField := fields[0]
-			if strings.Contains(fields[0], ".") {
-				t := strings.Split(fields[0], ".")[1]
-				fields[0] = t
-			}
-			field = strings.Join(fields, ".*.")
-			for _, v := range val {
-				data := dipper.Get(v, arrField)
-				switch data.(type) {
-				case error:
-					if isLast {
-						return false
-					}
-				}
-				if len(fields) == 2 {
-					isLast = true
-				}
-				if !r.validateRequiredWith(field, data, r.arguments, false) {
-					return false
-				}
-			}
-			return true
-		}
-	case []any:
-		if len(fields) == 2 {
-			isLast = true
-			arrField := fields[1]
-			for _, vt := range val {
-				notFound := false
-				dt := dipper.Get(vt, arrField)
-				switch dt.(type) {
-				case error:
-					if isLast {
-						notFound = true
-					}
-				}
-				for _, arg := range args {
-					switch arg := arg.(type) {
-					case string:
-						key := strings.ReplaceAll(arg, fields[0]+".*.", "")
-						d := dipper.Get(vt, key)
-						switch d.(type) {
-						case error:
-							if isLast && notFound {
-								return true
-							} else if isLast {
-								return false
-							}
-						default:
-							if notFound {
-								return false
-							}
-						}
-					}
-				}
-			}
-			return true
-		} else if len(fields) > 2 {
-			fields = fields[1:]
-			arrField := fields[0]
-			if strings.Contains(fields[0], ".") {
-				t := strings.Split(fields[0], ".")[1]
-				fields[0] = t
-			}
-			field = strings.Join(fields, ".*.")
-			for _, v := range val {
-				data := dipper.Get(v, arrField)
-				switch data.(type) {
-				case error:
-					if isLast {
-						return false
-					}
-				}
-				if len(fields) == 2 {
-					isLast = true
-				}
-				if !r.validateRequiredWith(field, data, r.arguments, false) {
-					return false
-				}
-			}
-			return true
+func (r *Rule) validateRequiredWith(field string, val any, args []any) bool {
+	for _, arg := range args {
+		existRelatedData := r.mapValidate(fmt.Sprintf("%v", arg), val)
+		if !existRelatedData {
+			return false
 		}
 	}
-	return true
+	return r.mapValidate(field, val)
 }
 
 // validate the field value
 func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation) (ok bool) {
-
 	// "-" OR "safe" mark field value always is safe.
 	if name == "-" || name == "safe" {
 		return true
 	}
-	if name == "required" && strings.Contains(field, ".*.") {
-		return r.mapValidate(field, val, false)
+	if name == "required" && strings.Contains(field, ".#.") {
+		return r.mapValidate(field, v.data.Src())
 	}
-	if name == "requiredWith" && strings.Contains(field, ".*.") {
-		return r.validateRequiredWith(field, val, r.arguments, false)
+	if name == "requiredWith" && strings.Contains(field, ".#.") {
+		return r.validateRequiredWith(field, v.data.Src(), r.arguments)
 	}
 	// call custom validator in the rule.
 	fm := r.checkFuncMeta
