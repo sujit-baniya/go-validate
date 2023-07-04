@@ -348,7 +348,16 @@ func (r *Rule) validateRequiredWith(field string, val any, args []any, isLast bo
 	case []map[string]any:
 		if len(fields) == 2 {
 			isLast = true
+			arrField := fields[1]
 			for _, vt := range val {
+				notFound := false
+				dt := dipper.Get(vt, arrField)
+				switch dt.(type) {
+				case error:
+					if isLast {
+						notFound = true
+					}
+				}
 				for _, arg := range args {
 					switch arg := arg.(type) {
 					case string:
@@ -357,6 +366,10 @@ func (r *Rule) validateRequiredWith(field string, val any, args []any, isLast bo
 						switch d.(type) {
 						case error:
 							if isLast {
+								return false
+							}
+						default:
+							if notFound {
 								return false
 							}
 						}
