@@ -365,7 +365,9 @@ func (r *Rule) validateRequiredWith(field string, val any, args []any, isLast bo
 						d := dipper.Get(vt, key)
 						switch d.(type) {
 						case error:
-							if isLast {
+							if isLast && notFound {
+								return true
+							} else if isLast {
 								return false
 							}
 						default:
