@@ -404,6 +404,65 @@ func (r *Rule) validateRequiredWith(field string, val any, args []any, isLast bo
 			}
 			return true
 		}
+	case []any:
+		if len(fields) == 2 {
+			isLast = true
+			arrField := fields[1]
+			for _, vt := range val {
+				notFound := false
+				dt := dipper.Get(vt, arrField)
+				switch dt.(type) {
+				case error:
+					if isLast {
+						notFound = true
+					}
+				}
+				for _, arg := range args {
+					switch arg := arg.(type) {
+					case string:
+						key := strings.ReplaceAll(arg, fields[0]+".*.", "")
+						d := dipper.Get(vt, key)
+						switch d.(type) {
+						case error:
+							if isLast && notFound {
+								return true
+							} else if isLast {
+								return false
+							}
+						default:
+							if notFound {
+								return false
+							}
+						}
+					}
+				}
+			}
+			return true
+		} else if len(fields) > 2 {
+			fields = fields[1:]
+			arrField := fields[0]
+			if strings.Contains(fields[0], ".") {
+				t := strings.Split(fields[0], ".")[1]
+				fields[0] = t
+			}
+			field = strings.Join(fields, ".*.")
+			for _, v := range val {
+				data := dipper.Get(v, arrField)
+				switch data.(type) {
+				case error:
+					if isLast {
+						return false
+					}
+				}
+				if len(fields) == 2 {
+					isLast = true
+				}
+				if !r.validateRequiredWith(field, data, r.arguments, false) {
+					return false
+				}
+			}
+			return true
+		}
 	}
 	return true
 }
