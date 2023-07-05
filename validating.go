@@ -273,13 +273,19 @@ func (r *Rule) mapValidate(field string, val interface{}) (ok bool) {
 }
 
 func (r *Rule) validateRequiredWith(field string, val any, args []any) bool {
+	argExists := false
 	for _, arg := range args {
 		existRelatedData := r.mapValidate(fmt.Sprintf("%v", arg), val)
-		if !existRelatedData {
-			return false
+		if existRelatedData {
+			argExists = true
+			break
 		}
 	}
-	return r.mapValidate(field, val)
+	valueExists := r.mapValidate(field, val)
+	if argExists && !valueExists {
+		return false
+	}
+	return true
 }
 
 // validate the field value
