@@ -197,6 +197,12 @@ func (v *Validation) StringRule(field, rule string, filterRule ...string) *Valid
 			// some special validator. need merge args to one.
 			case "enum", "notIn":
 				v.AddRule(field, validator, parseArgString(list[1]))
+			case "ifNotNull":
+				// get the rule to apply if the field is not null
+				div := strings.SplitN(validator, ":", 2)
+				if strings.ContainsRune(div[1], ':') {
+					v.AddRule(field, div[0], div[1])
+				}
 			default:
 				args := parseArgString(list[1])
 				v.AddRule(field, validator, strings2Args(args)...)

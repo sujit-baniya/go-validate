@@ -240,7 +240,6 @@ func (r *Rule) mapValidate(field string, val interface{}) (ok bool) {
 						case nil:
 							return false
 						}
-
 					}
 				case nil:
 					return false
@@ -259,13 +258,11 @@ func (r *Rule) mapValidate(field string, val interface{}) (ok bool) {
 						case nil:
 							return false
 						}
-
 					}
 				case nil:
 					return false
 				}
 			}
-
 		}
 	}
 
@@ -299,6 +296,17 @@ func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation)
 	}
 	if name == "requiredWith" && strings.Contains(field, ".#.") {
 		return r.validateRequiredWith(field, v.data.Src(), r.arguments)
+	}
+	// validate the field if the value is not empty.
+	if name == "ifNotNull" {
+		if val == nil {
+			return true
+		} else {
+			// get the rule
+			rule := r.arguments[0].(string)
+			ruleName := strings.Split(rule, ":")[0]
+			return r.valueValidate(field, ruleName, val, v)
+		}
 	}
 	// call custom validator in the rule.
 	fm := r.checkFuncMeta

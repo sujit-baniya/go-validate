@@ -355,4 +355,5 @@ var validatorAliases = map[string]string{
 	"required_without_all": "requiredWithoutAll",
 	// other
 	"not_contains": "notContains",
+	"isNotNull":    "isNotNull",
 }
