@@ -165,7 +165,13 @@ func (r *Rule) Apply(v *Validation) (stop bool) {
 		if r.valueValidate(field, name, val, v) {
 			v.safeData[field] = val // save validated value.
 		} else { // build and collect error message
-			v.AddError(field, r.validator, r.errorMessage(field, r.validator, v))
+			if name == "ifNotNull" {
+				// these are hard coded for ifNotNull by design
+				// TODO: make this more generic, make it so that ifNotNull can be used with any validator
+				v.AddError(field, r.realValidator, r.errorMessage(field, r.realValidator, v))
+			} else {
+				v.AddError(field, r.validator, r.errorMessage(field, r.validator, v))
+			}
 		}
 
 		// stop on error
@@ -299,13 +305,19 @@ func (r *Rule) valueValidate(field, name string, val interface{}, v *Validation)
 	}
 	// validate the field if the value is not empty.
 	if name == "ifNotNull" {
+		// these are hard coded for ifNotNull by design
+		// TODO: make this more generic, make it so that ifNotNull can be used with any validator
 		if val == nil {
 			return true
 		} else {
 			// get the rule
 			rule := r.arguments[0].(string)
-			ruleName := strings.Split(rule, ":")[0]
-			return r.valueValidate(field, ruleName, val, v)
+			rules := strings.Split(rule, ":")
+			ruleName := rules[0]
+			realRuleName := ValidatorName(ruleName)
+			r.realValidator = realRuleName
+			r.arguments = []interface{}{rules[1]}
+			return r.valueValidate(field, realRuleName, val, v)
 		}
 	}
 	// call custom validator in the rule.

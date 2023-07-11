@@ -31,6 +31,8 @@ type Rule struct {
 	messages map[string]string
 	// the input validator name
 	validator string
+	// the actual validator name (in case of ifNotNull, ifEmpty, etc.)
+	realValidator string
 	// the real validator name
 	realName string
 	// real validator name is requiredXXX validators
@@ -180,6 +182,7 @@ func (v *Validation) StringRule(field, rule string, filterRule ...string) *Valid
 		if validator == "" { // empty
 			continue
 		}
+		originalValidator := validator
 
 		// has args "min:12"
 		if strings.ContainsRune(validator, ':') {
@@ -199,7 +202,7 @@ func (v *Validation) StringRule(field, rule string, filterRule ...string) *Valid
 				v.AddRule(field, validator, parseArgString(list[1]))
 			case "ifNotNull":
 				// get the rule to apply if the field is not null
-				div := strings.SplitN(validator, ":", 2)
+				div := strings.SplitN(originalValidator, ":", 2)
 				if strings.ContainsRune(div[1], ':') {
 					v.AddRule(field, div[0], div[1])
 				}

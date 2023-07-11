@@ -12,6 +12,9 @@ var data = map[string]any{
 		"patient_status": "Other Disposition",
 		"disch_disp":     "OtherDisposition",
 		"status":         "COMPLETE",
+		"injury_time":    "2023-05-23T23:00:00.000Z",
+		"abc":            "123",
+		"aba":            nil,
 	},
 	"coding": []map[string]any{
 		{
@@ -367,6 +370,10 @@ var data = map[string]any{
 }
 
 var rules = map[string]string{
+	"patient_header.injury_time":                   "if_not_null:gte_field:patient_header.injury_date",
+	"patient_header.injury_date":                   "required",
+	"patient_header.abc":                           "required",
+	"patient_header.aba":                           "gte_field:patient_header.abc",
 	"coding":                                       "required",
 	"coding.#.dos":                                 "required",
 	"coding.#.details.dx.pro":                      "required",
