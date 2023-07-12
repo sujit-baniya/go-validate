@@ -47,6 +47,7 @@ func Val(val interface{}, rule string) error {
 		if validator == "" {
 			continue
 		}
+		originalValidator := validator
 
 		// validator has args. eg: "min:12"
 		if strings.ContainsRune(validator, ':') {
@@ -64,6 +65,12 @@ func Val(val interface{}, rule string) error {
 				arg := parseArgString(list[1])
 				// ev.AddRule(field, validator, arg)
 				r = buildRule(field, validator, realName, []interface{}{arg})
+			case "ifNotNull":
+				// get the rule to apply if the field is not null
+				div := strings.SplitN(originalValidator, ":", 2)
+				if strings.ContainsRune(div[1], ':') {
+					r = buildRule(field, div[0], ValidatorName(div[0]), []interface{}{div[1]})
+				}
 			default:
 				args := parseArgString(list[1])
 				r = buildRule(field, validator, realName, strings2Args(args))
