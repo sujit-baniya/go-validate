@@ -113,7 +113,7 @@ func ValueIsEmpty(v reflect.Value) bool {
 	case reflect.Map, reflect.Slice:
 		return v.Len() == 0 || v.IsNil()
 	case reflect.Bool:
-		return !v.Bool()
+		return false // this means a bool value is not empty, whether true or false
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return v.Int() == 0
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
@@ -360,11 +360,10 @@ func goodName(name string) bool {
  * From package "text/template" -> text/template/funcs.go
  *************************************************************/
 
-var (
-	errBadComparisonType = errors.New("invalid type for operation")
-	// errBadComparison     = errors.New("incompatible types for comparison")
-	// errNoComparison      = errors.New("missing argument for comparison")
-)
+var errBadComparisonType = errors.New("invalid type for operation")
+
+// errBadComparison     = errors.New("incompatible types for comparison")
+// errNoComparison      = errors.New("missing argument for comparison")
 
 type kind int
 
