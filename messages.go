@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
@@ -452,11 +453,24 @@ func (t *Translator) format(errMsg, field string, args []interface{}) string {
 		if strings.ContainsRune(errMsg, '%') {
 			errMsg = fmt.Sprintf(errMsg, args...)
 		}
-
+		var err error
+		var str string
+		arg := args[0]
+		switch arg := arg.(type) {
+		case []string:
+			str = arrutil.ToString(arg)
+		case []any:
+			str = arrutil.ToString(arg)
+		default:
+			str, err = strutil.ToStringWith(arg)
+			if err != nil {
+				log.Printf("Unable to convert %s", err)
+			}
+		}
 		msgArgs := []string{
 			"{field}", field,
 			"{values}", arrutil.ToString(args),
-			"{args0}", strutil.MustString(args[0]),
+			"{args0}", str,
 		}
 
 		// {args1end} -> args[1:]
